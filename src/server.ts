@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import {
   createConnection, DiagnosticSeverity, MarkupKind, ProposedFeatures, TextDocuments, TextDocumentSyncKind,
   type Diagnostic, type Hover, type InitializeResult, type TextEdit,
-} from "vscode-languageserver/node.js";
+} from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Analyzer } from "./analysis.js";
 import { formatBend } from "./formatter.js";
