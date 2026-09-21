@@ -13,7 +13,7 @@ await build({
   outdir: at("dist"),
   platform: "node",
   format: "esm",
-  target: "node22",
+  target: "node26",
   bundle: false,
   sourcemap: true,
 });
@@ -23,7 +23,7 @@ await build({
   outfile: at("dist/analysis-worker.js"),
   platform: "node",
   format: "esm",
-  target: "node22",
+  target: "node26",
   bundle: true,
   sourcemap: true,
 });
@@ -33,7 +33,7 @@ await build({
   outdir: at("dist"),
   platform: "node",
   format: "esm",
-  target: "node22",
+  target: "node26",
   bundle: false,
   sourcemap: true,
 });
@@ -43,7 +43,7 @@ await build({
   outdir: at("dist/test"),
   platform: "node",
   format: "esm",
-  target: "node22",
+  target: "node26",
   bundle: false,
   sourcemap: true,
 });

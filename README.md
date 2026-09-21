@@ -1,7 +1,7 @@
 # Bend 2 language server
 
 `bend2-lsp` provides formatting, live compiler diagnostics, and Markdown hover
-information for Bend 2 over LSP stdio. Node.js 22 or newer is required.
+information for Bend 2 over LSP stdio. Node.js 26 or newer is required.
 
 ```sh
 npm install -g bend2-lsp
