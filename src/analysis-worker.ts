@@ -15,6 +15,8 @@ import {
 } from "../vendor/bend2/bend.js";
 import type { AnalysisDiagnostic, AnalysisRequest, AnalysisResult, Overlay } from "./protocol.js";
 
+type Source = { original: string; staged: string; uri: string; text: string; namespace: string };
+
 const nativeFetch = globalThis.fetch;
 globalThis.fetch = (input, init = {}) => nativeFetch(input, { ...init, signal: init.signal ?? AbortSignal.timeout(10_000) });
 
@@ -35,8 +37,6 @@ function mirrorPath(file: string, runRoot: string): string {
   const volume = root.replace(/[^A-Za-z0-9]/g, "") || "root";
   return path.join(runRoot, volume, absolute.slice(root.length));
 }
-
-type Source = { original: string; staged: string; uri: string; text: string; namespace: string };
 
 function imports(text: string): Array<{ relative: string; alias: string }> {
   const found: Array<{ relative: string; alias: string }> = [];
