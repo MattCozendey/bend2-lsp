@@ -28,6 +28,18 @@ spacing without wrapping code.
 
 ## Editor setup
 
+VS Code:
+
+Install the [Bend 2 extension](https://github.com/kbrianps/bend-vscode) (`kbrianps.bend`), which bundles `bend2-lsp` and provides syntax highlighting, live diagnostics, hover, and formatting out of the box.
+
+To point the extension at a custom or local server build, set `bend.server.path` in `settings.json`:
+
+```json
+{
+  "bend.server.path": "bend2-lsp"
+}
+```
+
 Neovim with `nvim-lspconfig`:
 
 ```lua
