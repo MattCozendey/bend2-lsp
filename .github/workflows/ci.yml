@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Check npm package
+        run: |
+          npm pack --silent
+          tar -tzf bend2-lsp-0.1.0.tgz | grep -Fx 'package/dist/server.js'
+          tar -tzf bend2-lsp-0.1.0.tgz | grep -Fx 'package/dist/analysis-worker.js'
+          tar -tzf bend2-lsp-0.1.0.tgz | grep -Fx 'package/dist/base.bend'
+          npm install --prefix /tmp/bend2-lsp-smoke ./bend2-lsp-0.1.0.tgz
+          test -x /tmp/bend2-lsp-smoke/node_modules/.bin/bend2-lsp
+          BEND2_LSP_SERVER=/tmp/bend2-lsp-smoke/node_modules/.bin/bend2-lsp node dist/test/server.test.js

@@ -1,0 +1,37 @@
+{
+  "name": "bend2-lsp",
+  "version": "0.1.0",
+  "description": "Language server for Bend 2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/don2e4/bend2-lsp.git"
+  },
+  "bugs": "https://github.com/don2e4/bend2-lsp/issues",
+  "homepage": "https://github.com/don2e4/bend2-lsp#readme",
+  "type": "module",
+  "bin": {
+    "bend2-lsp": "dist/server.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node build.mjs && tsc -p tsconfig.json --emitDeclarationOnly",
+    "prepack": "npm run build",
+    "test": "npm run build && node --test dist/test/*.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "esbuild": "^0.25.9",
+    "typescript": "^5.9.0"
+  },
+  "license": "Apache-2.0"
+}
