@@ -29,8 +29,8 @@
     "vscode-languageserver-textdocument": "^1.0.12"
   },
   "devDependencies": {
-    "@types/node": "^24.0.0",
-    "esbuild": "^0.25.9",
+    "@types/node": "24.0.0",
+    "esbuild": "0.25.9",
     "typescript": "^5.9.0"
   },
   "license": "Apache-2.0"
