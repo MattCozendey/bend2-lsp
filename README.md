@@ -72,8 +72,9 @@ locals therefore return no hover.
 ## Compiler source
 
 `vendor/bend2/bend.ts` and `vendor/bend2/base.bend` are unmodified copies from
-[`don2e4/bend` commit `bacc663`](https://github.com/don2e4/bend/commit/bacc663b4897e210be43768ca5a73fcbbc6c06dd).
-They are bundled into the npm package so installation does not require a Bend
-checkout. The compiler and this language server are licensed under Apache 2.0;
-see `LICENSE`. Update both vendored files together from a pinned Bend commit,
-then run `npm test` and inspect `npm pack --dry-run` before releasing.
+the [`bendlang/bend`](https://github.com/bendlang/bend) commit pinned in the
+`bend` field of `package.json`. They are bundled into the npm package so
+installation does not require a Bend checkout. The compiler and this language
+server are licensed under Apache 2.0; see `LICENSE`. To bump the pin, run
+`npm run vendor:update -- <commit-sha>` (which fetches both files and rewrites
+the pin), then run `npm test` and inspect `npm pack --dry-run` before releasing.

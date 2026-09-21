@@ -19,7 +19,12 @@
   "scripts": {
     "build": "node build.mjs && tsc -p tsconfig.json --emitDeclarationOnly",
     "prepack": "npm run build",
-    "test": "npm run build && node --test dist/test/*.test.js"
+    "test": "npm run build && node --test dist/test/*.test.js",
+    "vendor:update": "node scripts/update-vendor.mjs"
+  },
+  "bend": {
+    "repo": "bendlang/bend",
+    "commit": "bacc663b4897e210be43768ca5a73fcbbc6c06dd"
   },
   "engines": {
     "node": "26.9.0"
