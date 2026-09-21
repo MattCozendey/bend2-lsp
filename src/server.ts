@@ -111,7 +111,7 @@ function schedule(uri: string, delay = 250): void {
 
 connection.onInitialize((): InitializeResult => ({
   capabilities: { textDocumentSync: TextDocumentSyncKind.Full, documentFormattingProvider: true, hoverProvider: true },
-  serverInfo: { name: "bend2-lsp", version: "0.1.0" },
+  serverInfo: { name: "bend2-lsp", version: "0.1.1" },
 }));
 
 connection.onDocumentFormatting((params): TextEdit[] => {
