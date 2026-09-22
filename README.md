@@ -30,7 +30,7 @@ spacing without wrapping code.
 
 VS Code:
 
-Install the [Bend 2 extension](https://github.com/kbrianps/bend-vscode) (`kbrianps.bend`), which bundles `bend2-lsp` and provides syntax highlighting, live diagnostics, hover, and formatting out of the box.
+Install the [Bend 2 extension](https://marketplace.visualstudio.com/items?itemName=kbrianps.bend2) (`kbrianps.bend2`, also on [Open VSX](https://open-vsx.org/extension/kbrianps/bend2)), which bundles `bend2-lsp` and provides syntax highlighting, live diagnostics, hover, and formatting out of the box.
 
 To point the extension at a custom or local server build, set `bend.server.path` in `settings.json`:
 
