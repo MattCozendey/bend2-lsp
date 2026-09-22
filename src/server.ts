@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+import { existsSync } from "node:fs";
+import { isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   createConnection, DiagnosticSeverity, MarkupKind, ProposedFeatures, TextDocuments, TextDocumentSyncKind,
-  type Diagnostic, type Hover, type InitializeResult, type TextEdit,
+  type Diagnostic, type Hover, type InitializeResult, type Location, type TextEdit,
 } from "vscode-languageserver/node";
 import { TextDocument } from "vscode-languageserver-textdocument";
 import { Analyzer } from "./analysis.js";
@@ -32,7 +34,9 @@ function importUris(document: TextDocument): Set<string> {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith("#")) continue;
     const match = /^import\s+(\S+)\s+as\s+[A-Za-z_][A-Za-z0-9_]*\s*(?:#.*)?$/.exec(trimmed);
-    if (match && !/^0x[0-9a-f]+\//.test(match[1])) found.add(new URL(match[1], document.uri).href);
+    if (match && !/^0x[0-9a-f]+\//.test(match[1])) {
+      try { found.add(new URL(match[1], document.uri).href); } catch { /* Invalid import paths belong in compiler diagnostics. */ }
+    }
     else if (trimmed !== "import Base") break;
   }
   return found;
@@ -70,34 +74,61 @@ function lexical(document: TextDocument): Diagnostic[] {
   return lexicalDiagnostics(document.getText()).map((item) => diagnostic(document, item));
 }
 
+function targets(result: AnalysisResult): Set<string> {
+  return new Set([result.uri, ...result.diagnostics.map((item) => item.uri)]);
+}
+
+function fresh(result: AnalysisResult): boolean {
+  return Object.entries(result.versions).every(([uri, version]) => documents.get(uri)?.version === version);
+}
+
+function publish(uri: string): void {
+  const document = documents.get(uri);
+  if (!document || !supported(document)) return;
+  const lex = lexical(document);
+  const lexicalPositions = new Set(lex.map((item) => `${item.code}:${item.range.start.line}:${item.range.start.character}`));
+  const seen = new Set<string>();
+  const compiler: Diagnostic[] = [];
+  for (const result of results.values()) {
+    if (!fresh(result)) continue;
+    for (const item of result.diagnostics) {
+      if (item.uri !== uri) continue;
+      const converted = diagnostic(document, item);
+      const position = `${converted.code}:${converted.range.start.line}:${converted.range.start.character}`;
+      const key = `${position}:${converted.message}`;
+      if (!lexicalPositions.has(position) && !seen.has(key)) { seen.add(key); compiler.push(converted); }
+    }
+  }
+  connection.sendDiagnostics({ uri, version: document.version, diagnostics: [...lex, ...compiler] });
+}
+
+function invalidate(uris: Set<string>): void {
+  const affected = new Set<string>(uris);
+  for (const uri of uris) {
+    const old = results.get(uri);
+    if (old) for (const target of targets(old)) affected.add(target);
+    results.delete(uri);
+  }
+  for (const uri of affected) publish(uri);
+}
+
 async function analyze(uri: string): Promise<void> {
   const document = documents.get(uri);
   if (!document || !supported(document)) return;
   const version = document.version;
   const path = filePath(uri);
   if (!path) {
-    connection.sendDiagnostics({ uri, version, diagnostics: lexical(document) });
+    publish(uri);
     return;
   }
   const result = await analyzer.analyze({ type: "analyze", uri, path, version, text: document.getText(), overlays: overlays() });
   const current = documents.get(uri);
-  if (!current || current.version !== result.version) return;
+  if (!current || current.version !== result.version || !fresh(result)) return;
+  const old = results.get(uri);
   results.set(uri, result);
-  const grouped = new Map<string, AnalysisDiagnostic[]>();
-  for (const item of result.diagnostics) grouped.set(item.uri, [...(grouped.get(item.uri) ?? []), item]);
-  const targets = new Set([uri, ...grouped.keys()]);
-  for (const target of targets) {
-    const targetDocument = documents.get(target);
-    if (!targetDocument) continue;
-    if (result.versions[target] !== undefined && targetDocument.version !== result.versions[target]) continue;
-    const compiler = (grouped.get(target) ?? []).map((item) => diagnostic(targetDocument, item));
-    const lex = lexical(targetDocument);
-    const seen = new Set(lex.map((item) => `${item.code}:${item.range.start.line}:${item.range.start.character}`));
-    connection.sendDiagnostics({
-      uri: target, version: targetDocument.version,
-      diagnostics: [...lex, ...compiler.filter((item) => !seen.has(`${item.code}:${item.range.start.line}:${item.range.start.character}`))],
-    });
-  }
+  const affected = targets(result);
+  if (old) for (const target of targets(old)) affected.add(target);
+  for (const target of affected) publish(target);
 }
 
 function schedule(uri: string, delay = 250): void {
@@ -110,7 +141,7 @@ function schedule(uri: string, delay = 250): void {
 }
 
 connection.onInitialize((): InitializeResult => ({
-  capabilities: { textDocumentSync: TextDocumentSyncKind.Full, documentFormattingProvider: true, hoverProvider: true },
+  capabilities: { textDocumentSync: TextDocumentSyncKind.Full, documentFormattingProvider: true, hoverProvider: true, definitionProvider: true },
   serverInfo: { name: "bend2-lsp", version: "0.1.1" },
 }));
 
@@ -142,29 +173,69 @@ connection.onHover((params): Hover | null => {
   const document = documents.get(params.textDocument.uri);
   if (!document || !supported(document)) return null;
   const token = tokenAt(document, document.offsetAt(params.position));
-  const value = staticHover(token) ?? results.get(document.uri)?.hovers[token];
+  const result = results.get(document.uri);
+  const value = staticHover(token) ?? (result && fresh(result) ? result.hovers[token] : undefined);
   return value ? { contents: { kind: MarkupKind.Markdown, value } } : null;
+});
+
+connection.onDefinition((params): Location | null => {
+  const document = documents.get(params.textDocument.uri);
+  if (!document || !supported(document)) return null;
+  const line = document.getText().split(/\r?\n/)[params.position.line] ?? "";
+  const imported = /^\s*import\s+(\S+)\s+as\s+([A-Za-z_][A-Za-z0-9_]*)\s*(?:#.*)?$/.exec(line);
+  if (imported && filePath(document.uri) && imported[1].endsWith(".bend") && !isAbsolute(imported[1]) && !/^0x[0-9a-f]+\//.test(imported[1])) {
+    const pathStart = line.indexOf(imported[1]);
+    const aliasStart = line.indexOf(imported[2], pathStart + imported[1].length);
+    const column = params.position.character;
+    if ((column >= pathStart && column < pathStart + imported[1].length) || (column >= aliasStart && column < aliasStart + imported[2].length)) {
+      try {
+        const target = new URL(imported[1], document.uri).href;
+        const file = filePath(target);
+        if (file && (documents.get(target) || existsSync(file))) return { uri: target, range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } } };
+      } catch { return null; }
+    }
+  }
+  let quote = "";
+  let escaped = false;
+  for (const char of line.slice(0, params.position.character)) {
+    if (escaped) escaped = false;
+    else if (char === "\\" && quote) escaped = true;
+    else if (char === quote) quote = "";
+    else if (!quote && (char === '"' || char === "'")) quote = char;
+    else if (!quote && char === "#") return null;
+  }
+  if (quote) return null;
+  const result = results.get(document.uri);
+  if (!result || !fresh(result)) return null;
+  const token = tokenAt(document, document.offsetAt(params.position));
+  const target = result.definitions[token];
+  if (!target) return null;
+  return target;
 });
 
 documents.onDidOpen(({ document }) => {
   if (!supported(document)) return;
   imports.set(document.uri, importUris(document));
-  schedule(document.uri, 0);
+  const affected = dependentsOf(document.uri);
+  invalidate(affected);
+  for (const uri of affected) schedule(uri, 0);
 });
 documents.onDidChangeContent(({ document }) => {
   if (!supported(document)) return;
   imports.set(document.uri, importUris(document));
-  results.delete(document.uri);
-  for (const uri of dependentsOf(document.uri)) schedule(uri);
+  const affected = dependentsOf(document.uri);
+  invalidate(affected);
+  for (const uri of affected) schedule(uri);
 });
 documents.onDidClose(({ document }) => {
   const timer = timers.get(document.uri);
   if (timer) clearTimeout(timer);
   timers.delete(document.uri);
   imports.delete(document.uri);
-  results.delete(document.uri);
+  const affected = dependentsOf(document.uri);
+  invalidate(affected);
   connection.sendDiagnostics({ uri: document.uri, diagnostics: [] });
-  for (const uri of dependentsOf(document.uri)) if (uri !== document.uri) schedule(uri);
+  for (const uri of affected) if (uri !== document.uri) schedule(uri);
 });
 
 connection.onShutdown(async () => { await analyzer.close(); });

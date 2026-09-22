@@ -31,6 +31,9 @@ export function lexicalDiagnostics(source: string): LexicalDiagnostic[] {
       quoteAt = i;
       continue;
     }
+    if (c === "?" && source.startsWith("?TODO", i) && !/[A-Za-z0-9_]/.test(source[i + 5] ?? "")) {
+      diagnostics.push({ range: { start: i, end: i + 5 }, message: "Unresolved hole '?TODO'.", code: "holes" });
+    }
     if (c in closeFor) opens.push({ char: c, at: i });
     else if (c === ")" || c === "]" || c === "}") {
       const open = opens.at(-1);
@@ -41,9 +44,6 @@ export function lexicalDiagnostics(source: string): LexicalDiagnostic[] {
   }
   if (quote) diagnostics.push({ range: { start: quoteAt, end: source.length }, message: `Unterminated ${quote === '"' ? "string" : "character"} literal.`, code: "parsing" });
   for (const open of opens) diagnostics.push({ range: { start: open.at, end: open.at + 1 }, message: `Unclosed '${open.char}'.`, code: "parsing" });
-  for (const match of source.matchAll(/\?TODO\b/g)) {
-    diagnostics.push({ range: { start: match.index, end: match.index + match[0].length }, message: "Unresolved hole '?TODO'.", code: "holes" });
-  }
   return diagnostics;
 }
 

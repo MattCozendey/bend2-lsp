@@ -14,6 +14,7 @@ export type AnalysisResult = {
   versions: Record<string, number>;
   diagnostics: AnalysisDiagnostic[];
   hovers: Record<string, string>;
+  definitions: Record<string, { uri: string; range: { start: { line: number; character: number }; end: { line: number; character: number } } }>;
 };
 
 export type Overlay = { uri: string; path: string; version: number; text: string };

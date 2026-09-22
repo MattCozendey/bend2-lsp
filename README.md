@@ -1,7 +1,7 @@
 # Bend 2 language server
 
-`bend2-lsp` provides formatting, live compiler diagnostics, and Markdown hover
-information for Bend 2 over LSP stdio. Node.js 26 or newer is required.
+`bend2-lsp` provides formatting, live compiler diagnostics, Markdown hover,
+and import go-to-definition for Bend 2 over LSP stdio. Node.js 26.9 or newer is required.
 
 ```sh
 npm install -g bend2-lsp
@@ -13,6 +13,8 @@ To build from source, run `npm ci && npm test`.
 The server accepts the `bend` and `bend2` language IDs. It uses full-document
 sync, publishes diagnostics on open and 250 ms after edits, and rechecks open
 documents that import a changed buffer. Open buffers override files on disk.
+Go-to-definition resolves relative import paths, aliases, and imported top-level
+declarations.
 Compiler analysis is limited to `file:` documents; untitled documents still
 receive formatting, lexical diagnostics, and syntax hover.
 

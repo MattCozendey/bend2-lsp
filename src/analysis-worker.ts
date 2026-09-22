@@ -15,7 +15,7 @@ import {
 } from "../vendor/bend2/bend.js";
 import type { AnalysisDiagnostic, AnalysisRequest, AnalysisResult, Overlay } from "./protocol.js";
 
-type Source = { original: string; staged: string; uri: string; text: string; namespace: string };
+type Source = { original: string; staged: string; uri: string; text: string; namespace: string; version?: number };
 
 const nativeFetch = globalThis.fetch;
 globalThis.fetch = (input, init = {}) => nativeFetch(input, { ...init, signal: init.signal ?? AbortSignal.timeout(10_000) });
@@ -76,7 +76,7 @@ function stageGraph(root: string, overlays: Overlay[], runRoot: string): { entry
     const staged = mirrorPath(file, runRoot);
     fs.mkdirSync(path.dirname(staged), { recursive: true });
     fs.writeFileSync(staged, text);
-    sources.push({ original: file, staged, uri: open?.uri ?? pathToFileURL(file).href, text, namespace });
+    sources.push({ original: file, staged, uri: open?.uri ?? pathToFileURL(file).href, text, namespace, version: open?.version });
     for (const imported of imports(text)) {
       if (/^0x[0-9a-f]+\//.test(imported.relative) || path.isAbsolute(imported.relative)) continue;
       const child = path.resolve(path.dirname(file), imported.relative);
@@ -128,6 +128,23 @@ function declarationKinds(sources: Source[]): Map<string, string> {
     }
   }
   return kinds;
+}
+
+function definitions(sources: Source[], aliases: Map<string, string>): AnalysisResult["definitions"] {
+  const result: AnalysisResult["definitions"] = Object.create(null) as AnalysisResult["definitions"];
+  const position = (text: string, offset: number) => {
+    const lines = text.slice(0, offset).split("\n");
+    return { line: lines.length - 1, character: lines.at(-1)!.length };
+  };
+  for (const source of sources) {
+    for (const match of source.text.matchAll(/^(?:def|law|type)\s+([A-Za-z_][A-Za-z0-9_.]*)/gm)) {
+      const start = match.index + match[0].lastIndexOf(match[1]);
+      for (const [alias, namespace] of aliases) {
+        if (source.namespace === namespace) result[`${alias}.${match[1]}`] = { uri: source.uri, range: { start: position(source.text, start), end: position(source.text, start + match[1].length) } };
+      }
+    }
+  }
+  return result;
 }
 
 function renderHovers(book: Book, sources: Source[], aliases: Map<string, string>): Record<string, string> {
@@ -205,8 +222,8 @@ async function analyze(request: AnalysisRequest): Promise<AnalysisResult> {
         diagnostics = [{ uri: request.uri, range: { start: 0, end: 0 }, message: caught instanceof Error ? caught.message : String(caught), code: checking ? "checking" : "imports" }];
       }
     }
-    const versions = Object.fromEntries(request.overlays.map((overlay) => [overlay.uri, overlay.version]));
-    return { id: request.id, uri: request.uri, version: request.version, versions, diagnostics, hovers: renderHovers(book, staged.sources, staged.aliases) };
+    const versions = Object.fromEntries(staged.sources.filter((source) => source.version !== undefined).map((source) => [source.uri, source.version]));
+    return { id: request.id, uri: request.uri, version: request.version, versions, diagnostics, hovers: renderHovers(book, staged.sources, staged.aliases), definitions: definitions(staged.sources, staged.aliases) };
   } finally {
     fs.rmSync(runRoot, { recursive: true, force: true });
   }

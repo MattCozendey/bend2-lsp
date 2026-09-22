@@ -13,6 +13,11 @@ test("reports lexical errors and documents syntax", () => {
   assert.equal(staticHover("unknown"), null);
 });
 
+test("ignores hole markers inside comments and literals", () => {
+  const source = '# ?TODO\n"?TODO"\n?TODO';
+  assert.deepEqual(lexicalDiagnostics(source).map((item) => item.range.start), [source.lastIndexOf("?TODO")]);
+});
+
 test("uses the compiler for diagnostics and hover", async () => {
   const analyzer = new Analyzer();
   const file = path.join(os.tmpdir(), `bend2-lsp-test-${process.pid}.bend`);
@@ -38,6 +43,8 @@ test("resolves an imported unsaved overlay", async () => {
   await analyzer.close();
   assert.deepEqual(result.diagnostics, []);
   assert.match(result.hovers["Dep.answer"], /answer/);
+  assert.deepEqual(result.definitions["Dep.answer"], { uri: depUri, range: { start: { line: 2, character: 4 }, end: { line: 2, character: 10 } } });
+  assert.deepEqual(result.versions, { [mainUri]: 1, [depUri]: 2 });
 });
 
 test("keeps case-distinct imports separate on case-sensitive filesystems", { skip: process.platform === "win32" }, async () => {
